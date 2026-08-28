@@ -4,6 +4,9 @@ import cv2
 from scipy.ndimage import gaussian_filter1d
 from scipy.signal import welch
 
+import matplotlib.pyplot as plt
+import os
+
 class NeuroSketchPreprocessor:
     def __init__(self, target_hz=133, img_size=(224, 224)):
         """
@@ -16,29 +19,29 @@ class NeuroSketchPreprocessor:
         
     # STREAM A: KINEMATIC (NUMBERS -> Random Forest)
     def process_kinematics(self, df):
-        # 1. Gaussian Low-Pass Filter
-        df['x_smooth'] = gaussian_filter1d(df['x'], sigma=2)
-        df['y_smooth'] = gaussian_filter1d(df['y'], sigma=2)
-        df['pressure_smooth'] = gaussian_filter1d(df['pressure'], sigma=2)
+        # Convert columns to flat NumPy arrays to prevent index errors
+        time_arr = df['time'].to_numpy()
+        x_smooth = gaussian_filter1d(df['x'].to_numpy(), sigma=2)
+        y_smooth = gaussian_filter1d(df['y'].to_numpy(), sigma=2)
+        pressure_smooth = gaussian_filter1d(df['pressure'].to_numpy(), sigma=2)
         
-        # 2. Derive Dynamic Features
-        df['vel_x'] = np.gradient(df['x_smooth'], df['time'])
-        df['vel_y'] = np.gradient(df['y_smooth'], df['time'])
-        df['velocity'] = np.sqrt(df['vel_x']**2 + df['vel_y']**2)
+        # Derive kinematics
+        vel_x = np.gradient(x_smooth, time_arr)
+        vel_y = np.gradient(y_smooth, time_arr)
+        velocity = np.sqrt(vel_x**2 + vel_y**2)
         
-        df['accel'] = np.gradient(df['velocity'], df['time'])
-        df['jerk'] = np.gradient(df['accel'], df['time'])
+        accel = np.gradient(velocity, time_arr)
+        jerk = np.gradient(accel, time_arr)
         
-        # 3. Fast Fourier Transform (FFT) - 4-6 Hz Tremor Band
-        freqs, psd = welch(df['velocity'], fs=self.target_hz, nperseg=min(256, len(df)))
-        
+        # 4-6 Hz Tremor extraction
+        freqs, psd = welch(velocity, fs=self.target_hz, nperseg=min(256, len(df)))
         tremor_band = (freqs >= 4) & (freqs <= 6)
-        tremor_power_4_to_6 = np.trapz(psd[tremor_band], freqs[tremor_band])
+        tremor_power_4_to_6 = np.trapezoid(psd[tremor_band], freqs[tremor_band])
         
         return {
-            'mean_velocity': df['velocity'].mean(),
-            'pressure_variance': df['pressure_smooth'].var(),
-            'jerk_variance': df['jerk'].var(),
+            'mean_velocity': velocity.mean(),
+            'pressure_variance': pressure_smooth.var(),
+            'jerk_variance': jerk.var(),
             'tremor_power_4_to_6_hz': tremor_power_4_to_6
         }
 
@@ -54,3 +57,47 @@ class NeuroSketchPreprocessor:
         edges = cv2.Canny(img_resized, threshold1=100, threshold2=200)
         
         return edges
+
+
+
+if __name__ == "__main__":
+    processor = NeuroSketchPreprocessor()
+    
+    # 1. Update this path to point to an .svc file!
+    sample_svc_path = r"data\raw\data\PaHaW\PaHaW_public\00001\00001__1_1.svc"
+    
+    print("--- TESTING KINEMATIC STREAM ---")
+    try:
+        # Read the .svc based on info.txt (skip row 1, separate by spaces)
+        df = pd.read_csv(sample_svc_path, sep=r'\s+', skiprows=1, 
+                        names=['y', 'x', 'time', 'button', 'azimuth', 'altitude', 'pressure'])
+        
+        kinematic_results = processor.process_kinematics(df)
+        print("Kinematic Extraction Success! Biomarkers:")
+        print(kinematic_results)
+    except Exception as e:
+        print(f"Kinematic Error: {e}")
+
+    print("\n--- RECONSTRUCTING VISUAL IMAGE ---")
+    try:
+        # Filter to only show when the pen was actually touching the tablet (button == 1)
+        df_pen_down = df[df['button'] == 1]
+        
+        # Plot the X and Y coordinates to recreate the drawing
+        plt.figure(figsize=(5,5), facecolor='white')
+        plt.plot(df_pen_down['x'], -df_pen_down['y'], color='black', linewidth=2) # -y to flip it upright
+        plt.axis('off')
+        
+        # Save the rendered drawing
+        generated_img_path = r"data\processed\generated_spiral.png"
+        plt.savefig(generated_img_path, bbox_inches='tight', pad_inches=0)
+        plt.close()
+        print(f"Successfully generated drawing at {generated_img_path}")
+        
+        # Now pass this generated image into our Canny CNN processor!
+        edges = processor.process_visuals(generated_img_path)
+        cv2.imwrite(r"data\processed\final_cnn_input.png", edges)
+        print("Successfully applied Canny Edge Detection for ResNet-18!")
+        
+    except Exception as e:
+        print(f"Visual Error: {e}")
