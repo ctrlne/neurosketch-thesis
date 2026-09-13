@@ -7,6 +7,7 @@ import cv2
 import numpy as np
 import pandas as pd
 import tensorflow as tf
+from tensorflow.keras.applications.resnet50 import preprocess_input
 import shap
 import matplotlib.pyplot as plt
 
@@ -26,12 +27,12 @@ def generate_shap_heatmaps():
     
     sample_images = []
     for pid in [healthy_id, pd_id]:
-        img_path = os.path.join(image_dir, f"{pid}_canny.png")
+        img_path = os.path.join(image_dir, f"{pid}_pressure.png")
         img = cv2.imread(img_path)
         img = cv2.resize(img, (256, 256))
         sample_images.append(img)
         
-    sample_images = np.array(sample_images) / 255.0
+    sample_images = preprocess_input(np.array(sample_images))
 
     print("3. Generating SHAP Explainer (This might take a minute)...")
     explainer = shap.GradientExplainer(model, sample_images)

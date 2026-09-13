@@ -7,7 +7,7 @@ def train_kinematic_model():
     # Load the fully labeled and augmented dataset
     df = pd.read_csv(r"data\processed\final_labeled_kinematics.csv")
     
-    # Isolate the kinematic features (X) and the target label (y)
+    # isolate the kinematic features (X) and the target label (y)
     features = ['mean_velocity', 'pressure_variance', 'jerk_variance', 'tremor_power_4_to_6_hz']
     X = df[features]
     y = df['target']
@@ -17,11 +17,11 @@ def train_kinematic_model():
         X, y, test_size=0.2, random_state=42, stratify=y
     )
     
-    # Initialize and train the Random Forest Classifier
+    # initialize and train the rf classifier
     rf_model = RandomForestClassifier(n_estimators=100, max_depth=5, random_state=42)
     rf_model.fit(X_train, y_train)
     
-    # Predict on the unseen test set
+    # predict unseen test set/data
     predictions = rf_model.predict(X_test)
     
     # Output evaluation metrics

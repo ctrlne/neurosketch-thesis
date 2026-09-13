@@ -34,17 +34,24 @@ def run_batch():
                 kinematics['patient_id'] = patient_id
                 master_kinematic_data.append(kinematics)
                 
-                # 3. Generate & Process Image
+                # 3. Generate Pressure-Sensitive Image
                 df_pen = df[df['button'] == 1]
-                img_temp_path = f"{PROCESSED_DIR}/temp.png"
+                
+                # Normalize pressure values to dynamically scale the ink thickness
+                p_min, p_max = df_pen['pressure'].min(), df_pen['pressure'].max()
+                scaled_pressure = (df_pen['pressure'] - p_min) / (p_max - p_min + 1e-5)
                 
                 plt.figure(figsize=(5,5), facecolor='white')
-                plt.plot(df_pen['x'], -df_pen['y'], color='black', linewidth=2)
+                # Draw the spiral using pressure for the stroke size (s)
+                plt.scatter(df_pen['x'], -df_pen['y'], c='black', s=scaled_pressure * 30, cmap='gray')
                 plt.axis('off')
-                plt.savefig(img_temp_path, bbox_inches='tight', pad_inches=0)
+                
+                # Save directly to the images folder, bypassing Canny Edge entirely
+                final_img_path = f"{PROCESSED_DIR}/images/{patient_id}_pressure.png"
+                plt.savefig(final_img_path, bbox_inches='tight', pad_inches=0)
                 plt.close()
                 
-                edges = processor.process_visuals(img_temp_path)
+                edges = processor.process_visuals(final_img_path)
                 cv2.imwrite(f"{PROCESSED_DIR}/images/{patient_id}_canny.png", edges)
 
     # Export a single clean CSV for the Random Forest model

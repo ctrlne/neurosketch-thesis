@@ -1,1 +1,5 @@
-.venv
+.venv/
+*.h5
+*.keras
+*.pkl
+data/processed/images/

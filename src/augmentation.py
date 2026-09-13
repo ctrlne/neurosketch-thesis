@@ -6,7 +6,7 @@ import numpy as np
 def augment_visuals(image_dir):
     print("Augmenting Visual Stream...")
     for img_name in os.listdir(image_dir):
-        if not img_name.endswith("_canny.png"): continue
+        if not img_name.endswith("_pressure.png"): continue
         
         img_path = os.path.join(image_dir, img_name)
         img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
@@ -27,7 +27,7 @@ def augment_kinematics(csv_path):
     print("Augmenting Kinematic Stream...")
     df = pd.read_csv(csv_path)
     
-    # Synthetic Noise Injection (Mild Gaussian Noise)
+    # synthetic noise injection (Mild Gaussian Noise)
     augmented_rows = []
     for index, row in df.iterrows():
         noise_factor = 0.05 # 5% clinical variation

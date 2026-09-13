@@ -1,1 +1,3 @@
-# neurosketch-thesis
+# NeuroSketch
+
+Neurosketch is an explainable AI pipeline designed to assist in early neurological and cognitive impairment detection through computerized drawing and sketching analysis. The system extracts kinematic and spatial drawing signals, trains convolutional feature extractors on sketch imagery, and integrates both representations using late fusion. To ensure clinical transparency, model decisions are interpreted using SHAP (SHapley Additive exPlanations).
